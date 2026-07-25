@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/badkitten-bug/certichain/actions/workflows/ci.yml/badge.svg)](https://github.com/badkitten-bug/certichain/actions/workflows/ci.yml)
 
-Aplicación desarrollada con **Arquitectura Onion (Cebolla)** usando **TypeScript + NestJS**.
+Aplicación desarrollada con **Arquitectura Hexagonal** usando **TypeScript + NestJS**.
 
 > 📘 Documento completo de análisis y diseño: [docs/Analisis-y-Diseno-CertiChain.md](docs/Analisis-y-Diseno-CertiChain.md)
 
