@@ -16,70 +16,79 @@ Las instituciones educativas emiten certificados que hoy son fáciles de falsifi
 - La institución puede **revocar** un certificado, y la revocación también queda anclada como bloque (nunca se borra nada).
 - Cualquiera puede **auditar la integridad** de la cadena completa.
 
-## 🧅 ¿Por qué Arquitectura Onion?
+## 🧅 ¿Por qué Arquitectura Hexagonal?
 
-La arquitectura Onion organiza el código en capas concéntricas donde **las dependencias siempre apuntan hacia adentro**: el dominio no conoce a nadie; la infraestructura conoce a todos.
+La arquitectura Hexagonal (Ports & Adapters) organiza el código alrededor de un **núcleo de dominio y aplicación** completamente aislado de la infraestructura y la presentación. Las dependencias apuntan siempre hacia el centro: los adaptadores conocen los puertos, pero el núcleo no conoce a los adaptadores.
 
 Este caso la amerita porque:
 
 1. **El dominio es valioso e independiente de la tecnología**: las reglas "solo una institución activa emite", "solo el emisor revoca", "un certificado es válido si su hash coincide con el anclado y la cadena está íntegra" existen sin importar si se usa NestJS, SQLite o Ethereum.
-2. **La blockchain es un detalle de infraestructura**: hoy es una cadena simulada en memoria; mañana podría anclarse a una testnet real. El dominio y los casos de uso **no cambiarían ni una línea**.
-3. **Testeable**: los casos de uso se prueban con repositorios falsos, sin levantar base de datos ni servidor HTTP.
+2. **Los adaptadores son intercambiables**: hoy la blockchain es SQLite; mañana podría anclarse a una testnet real. Los puertos outbound definen el contrato; los casos de uso no cambian ni una línea.
+3. **Testeable**: los casos de uso se prueban con fakes de los puertos outbound, sin levantar base de datos ni servidor HTTP.
 
 ### Diagrama de capas
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  PRESENTATION      (controllers REST, DTOs HTTP)    │
-│  ┌───────────────────────────────────────────────┐  │
-│  │  INFRASTRUCTURE  (repos en memoria,           │  │
-│  │                   adaptador blockchain)       │  │
-│  │  ┌─────────────────────────────────────────┐  │  │
-│  │  │  APPLICATION   (casos de uso, puertos)  │  │  │
-│  │  │  ┌───────────────────────────────────┐  │  │  │
-│  │  │  │  DOMAIN                           │  │  │  │
-│  │  │  │  (Institution, Certificate,       │  │  │  │
-│  │  │  │   Block, reglas de negocio,       │  │  │  │
-│  │  │  │   contratos de repositorio)       │  │  │  │
-│  │  │  └───────────────────────────────────┘  │  │  │
-│  │  └─────────────────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
-          Las dependencias apuntan hacia ADENTRO →
+┌─────────────────────────────────────────────────────────────────┐
+│  ADAPTERS INBOUND     (controllers REST, filtros HTTP)          │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  PORTS INBOUND    (interfaces de entrada)               │    │
+│  │  ┌───────────────────────────────────────────────────┐  │    │
+│  │  │  CORE / APPLICATION   (casos de uso, DTOs)        │  │    │
+│  │  │  ┌─────────────────────────────────────────────┐  │  │    │
+│  │  │  │  CORE / DOMAIN                              │  │  │    │
+│  │  │  │  (Institution, Certificate, Block,          │  │  │    │
+│  │  │  │   reglas de negocio, excepciones)           │  │  │    │
+│  │  │  └─────────────────────────────────────────────┘  │  │    │
+│  │  └───────────────────────────────────────────────────┘  │    │
+│  │  PORTS OUTBOUND   (interfaces de salida)                 │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│  ADAPTERS OUTBOUND    (SQLite/Prisma, blockchain, reloj)        │
+│  CONFIGURATION        (DI, database, security)                  │
+└─────────────────────────────────────────────────────────────────┘
+              Las dependencias apuntan hacia ADENTRO →
 ```
 
 ### Estructura de carpetas
 
 ```
 src/
-├── domain/                  ← Núcleo: NO depende de nada externo
-│   ├── entities/            ← Institution, Certificate
-│   ├── value-objects/       ← Block (hash SHA-256 encadenado)
-│   ├── repositories/        ← Interfaces (contratos) de persistencia
-│   └── errors/              ← Errores de negocio
-├── application/             ← Orquesta el dominio. Solo depende de domain/
-│   ├── use-cases/           ← RegisterInstitution, IssueCertificate,
-│   │                          VerifyCertificate, RevokeCertificate,
-│   │                          VerifyChain, ListHolderCertificates
-│   ├── ports/               ← CertificateLedger (blockchain), Clock
-│   └── dtos/                ← Entradas/salidas de los casos de uso
-├── infrastructure/          ← Implementa las interfaces del dominio
-│   ├── persistence/         ← Repositorios en memoria
-│   └── blockchain/          ← Ledger simulado con bloques encadenados
-└── presentation/            ← Capa más externa
-    ├── controllers/         ← Endpoints REST
-    ├── filters/             ← Errores de dominio -> HTTP
-    └── dtos/                ← Requests HTTP
+├── core/                        ← Núcleo: NO depende de nada externo
+│   ├── domain/
+│   │   ├── entities/            ← Institution, Certificate
+│   │   ├── value-objects/       ← Block (hash SHA-256 encadenado)
+│   │   └── exceptions/          ← Errores de negocio
+│   └── application/
+│       ├── use-cases/           ← RegisterInstitution, IssueCertificate,
+│       │                          VerifyCertificate, RevokeCertificate,
+│       │                          VerifyChain, ListHolderCertificates
+│       └── dto/                 ← Entradas/salidas de los casos de uso
+├── ports/                       ← Contratos definidos por la aplicación
+│   ├── inbound/                 ← Interfaces expuestas hacia adaptadores primarios
+│   └── outbound/                ← Interfaces hacia infraestructura (repos, ledger, clock)
+├── adapters/
+│   ├── inbound/
+│   │   └── rest/                ← Controllers REST, filtros, DTOs HTTP
+│   └── outbound/
+│       ├── persistence/         ← SQLite (Prisma) + en memoria
+│       ├── blockchain/          ← Ledger SQLite + en memoria
+│       └── clock/               ← Reloj del sistema
+└── configuration/
+    ├── dependency-injection/    ← Composition root (AppModule)
+    └── database/                ← PrismaService
 ```
 
 ### Regla de oro
 
 | Capa | Puede importar de | NUNCA importa de |
 |------|-------------------|------------------|
-| Domain | (nada) | Application, Infrastructure, Presentation, NestJS |
-| Application | Domain | Infrastructure, Presentation |
-| Infrastructure | Domain, Application | Presentation |
-| Presentation | Application (y Domain para tipos) | Infrastructure (solo la ensambla el módulo de NestJS vía inyección de dependencias) |
+| core/domain | (nada) | application, ports, adapters, configuration |
+| core/application | core/domain, ports/outbound | adapters, configuration |
+| ports/inbound | core/application/dto | adapters, configuration |
+| ports/outbound | core/domain | adapters, configuration |
+| adapters/inbound | ports/inbound, ports/outbound | core directamente |
+| adapters/outbound | ports/outbound, core/domain | adapters/inbound |
+| configuration | todos | (es el composition root) |
 
 ## 🚀 API
 

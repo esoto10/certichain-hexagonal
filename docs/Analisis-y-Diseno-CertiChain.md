@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Curso** | Arquitectura de Software |
-| **Arquitectura aplicada** | Onion Architecture |
+| **Arquitectura aplicada** | Hexagonal Architecture (Ports & Adapters) |
 | **Stack** | TypeScript + NestJS |
 | **Equipo** | Steve Gómez, Erickson Soto,  Jose Pacco  |
 | **Fecha** | Julio de 2026 |
@@ -22,13 +22,13 @@ Esta situación genera un problema real y creciente: la **falsificación de tít
 
 La tecnología **blockchain** ofrece una respuesta directa a este problema gracias a dos propiedades: la **inmutabilidad** (lo registrado no puede alterarse sin romper la cadena) y la **verificación descentralizada** (no se necesita pedir permiso ni consultar al emisor). Si en el momento de la emisión se calcula la huella digital (hash) del certificado y se ancla como un bloque de la cadena, cualquier persona o empresa puede, en segundos, comprobar que el documento existe, que no ha sido modificado y que no ha sido revocado.
 
-El proyecto se desarrolla aplicando la **Arquitectura Onion**, especialmente adecuada porque las reglas del negocio —qué es un certificado válido, quién puede emitirlo, cuándo se revoca, cómo se comprueba su integridad— son independientes de la tecnología: la blockchain es un **detalle de infraestructura intercambiable**, que hoy se implementa como una cadena simulada y mañana podría anclarse a una red pública de pruebas (testnet) sin modificar el núcleo del sistema.
+El proyecto se desarrolla aplicando la **Arquitectura Hexagonal (Ports & Adapters)**, especialmente adecuada porque las reglas del negocio —qué es un certificado válido, quién puede emitirlo, cuándo se revoca, cómo se comprueba su integridad— son independientes de la tecnología: la blockchain es un **detalle de infraestructura intercambiable** detrás de un puerto outbound, que hoy se implementa como una cadena simulada en SQLite y mañana podría anclarse a una red pública de pruebas (testnet) sin modificar el núcleo del sistema ni los casos de uso.
 
 ### 1.2 Objetivos
 
 **Objetivo general**
 
-Desarrollar un sistema de registro y verificación de certificados académicos anclados en una cadena de bloques, aplicando la Arquitectura Onion de modo que el dominio del negocio permanezca independiente de los frameworks, la base de datos y la propia blockchain.
+Desarrollar un sistema de registro y verificación de certificados académicos anclados en una cadena de bloques, aplicando la Arquitectura Hexagonal (Ports & Adapters) de modo que el dominio del negocio permanezca independiente de los frameworks, la base de datos y la propia blockchain.
 
 **Objetivos específicos**
 
@@ -37,7 +37,7 @@ Desarrollar un sistema de registro y verificación de certificados académicos a
 | OE-1 | Permitir que las instituciones registradas emitan certificados cuya huella digital (hash SHA-256) quede anclada como un bloque inmutable de la cadena |
 | OE-2 | Ofrecer a cualquier tercero un mecanismo público de verificación de autenticidad e integridad que no dependa de la institución emisora |
 | OE-3 | Soportar la revocación de certificados dejando rastro auditable e inmutable en la cadena |
-| OE-4 | Implementar la solución en cuatro capas concéntricas (Domain, Application, Infrastructure, Presentation) con dependencias que apunten siempre hacia el centro |
+| OE-4 | Implementar la solución siguiendo Arquitectura Hexagonal: núcleo (`core/domain` + `core/application`) aislado por puertos (`ports/inbound` y `ports/outbound`) e implementado por adaptadores (`adapters/inbound/rest` y `adapters/outbound`) con dependencias siempre hacia el centro |
 | OE-5 | Garantizar la calidad mediante pruebas unitarias del dominio y casos de uso, y pruebas de extremo a extremo del flujo completo |
 | OE-6 | Exponer la funcionalidad a través de una API REST construida con TypeScript y NestJS |
 
@@ -50,7 +50,7 @@ Desarrollar un sistema de registro y verificación de certificados académicos a
 - Verificación pública de un certificado: dado su código de verificación, el sistema responde si es auténtico, íntegro y vigente (o revocado).
 - Revocación de certificados por parte de la institución emisora, registrada también como bloque inmutable.
 - Auditoría de la integridad de la cadena completa: cualquier alteración de un bloque es detectada y localizada.
-- API REST con los casos de uso anteriores, bajo Arquitectura Onion.
+- API REST con los casos de uso anteriores, bajo Arquitectura Hexagonal (Ports & Adapters).
 - Blockchain simulada (bloques encadenados por hash) detrás de un contrato (puerto) que permite reemplazarla por una red real.
 
 **El sistema NO incluye (fuera del alcance de esta versión):**
@@ -73,7 +73,7 @@ Desarrollar un sistema de registro y verificación de certificados académicos a
 | **Titular (egresado/estudiante)** | Beneficiario | Poseer un certificado verificable al instante ante cualquier empleador, sin trámites |
 | **Verificador (empresa/reclutador/otra institución)** | Consumidor | Comprobar en segundos la autenticidad de un certificado sin depender del emisor |
 | **Administrador del sistema** | Operador | Mantener la plataforma disponible y auditar la integridad de la cadena |
-| **Equipo de desarrollo** | Constructor | Implementar y mantener el sistema demostrando la Arquitectura Onion |
+| **Equipo de desarrollo** | Constructor | Implementar y mantener el sistema demostrando la Arquitectura Hexagonal |
 | **Docente del curso** | Evaluador | Verificar la correcta aplicación de la arquitectura y su justificación |
 
 ### 2.2 Glosario
@@ -116,8 +116,8 @@ Desarrollar un sistema de registro y verificación de certificados académicos a
 
 **Restricciones**
 
-- **Académica**: el proyecto debe demostrar la Arquitectura Onion; las dependencias solo apuntan hacia adentro.
-- **Tecnológica**: TypeScript + NestJS; blockchain simulada en la capa de infraestructura detrás del puerto `CertificateLedger`.
+- **Académica**: el proyecto debe demostrar la Arquitectura Hexagonal (Ports & Adapters); las dependencias solo apuntan hacia el núcleo (`core/`).
+- **Tecnológica**: TypeScript + NestJS; blockchain simulada como adaptador outbound detrás del puerto `CertificateLedger`.
 - **De tiempo**: el desarrollo se ajusta al calendario del curso (julio 2026); las evoluciones (testnet real, frontend) quedan fuera.
 - **De persistencia**: la versión inicial usa repositorios en memoria; la migración a SQLite/PostgreSQL solo debe requerir nuevas implementaciones de los contratos ya definidos.
 
@@ -175,7 +175,7 @@ Desarrollar un sistema de registro y verificación de certificados académicos a
 
 | ID | Categoría | Requisito |
 |----|-----------|-----------|
-| RNF-01 | Arquitectura | El código se organizará en 4 capas Onion; la capa Domain no importará nada de Application, Infrastructure, Presentation ni NestJS |
+| RNF-01 | Arquitectura | El código se organizará siguiendo Arquitectura Hexagonal: `core/domain` no importará nada externo; los casos de uso solo dependen de puertos outbound; los adaptadores conocen los puertos pero no el núcleo directamente |
 | RNF-02 | Mantenibilidad | Reemplazar la blockchain simulada o la persistencia solo requerirá nuevas implementaciones de los contratos, sin tocar Domain/Application |
 | RNF-03 | Testabilidad | Dominio y casos de uso serán probables sin base de datos, sin HTTP y sin framework (fakes en memoria) |
 | RNF-04 | Integridad | Toda alteración de un bloque registrado será detectable en la auditoría (hash SHA-256 encadenado) |
@@ -292,27 +292,28 @@ classDiagram
 
 ## 5. Diseño de la solución
 
-### 5.1 Arquitectura propuesta: Onion Architecture
+### 5.1 Arquitectura propuesta: Hexagonal Architecture (Ports & Adapters)
 
-Las dependencias apuntan **siempre hacia adentro**. El dominio no conoce a nadie; la infraestructura conoce a todos.
+Las dependencias apuntan **siempre hacia el núcleo**. El dominio no conoce a nadie; los adaptadores conocen los puertos pero no el núcleo directamente.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  PRESENTATION      (controllers REST, DTOs HTTP,    │
+│  ADAPTERS INBOUND  (controllers REST, DTOs HTTP,    │
 │                     filtro de errores dominio→HTTP) │
 │  ┌───────────────────────────────────────────────┐  │
-│  │  INFRASTRUCTURE  (repositorios en memoria,    │  │
-│  │                   blockchain simulada, reloj) │  │
+│  │  PORTS INBOUND  (interfaces de entrada)       │  │
 │  │  ┌─────────────────────────────────────────┐  │  │
-│  │  │  APPLICATION   (casos de uso, puertos)  │  │  │
+│  │  │  CORE / APPLICATION (casos de uso)      │  │  │
 │  │  │  ┌───────────────────────────────────┐  │  │  │
-│  │  │  │  DOMAIN                           │  │  │  │
+│  │  │  │  CORE / DOMAIN                    │  │  │  │
 │  │  │  │  entidades, value objects,        │  │  │  │
-│  │  │  │  reglas de negocio, contratos     │  │  │  │
-│  │  │  │  de repositorio                   │  │  │  │
+│  │  │  │  excepciones de negocio           │  │  │  │
 │  │  │  └───────────────────────────────────┘  │  │  │
 │  │  └─────────────────────────────────────────┘  │  │
+│  │  PORTS OUTBOUND  (interfaces de salida)        │  │
 │  └───────────────────────────────────────────────┘  │
+│  ADAPTERS OUTBOUND (SQLite/Prisma, blockchain, reloj)│
+│  CONFIGURATION     (DI composition root, database)  │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -320,29 +321,32 @@ Las dependencias apuntan **siempre hacia adentro**. El dominio no conoce a nadie
 
 | Capa | Puede importar de | NUNCA importa de |
 |------|-------------------|------------------|
-| Domain | (nada) | Application, Infrastructure, Presentation, NestJS |
-| Application | Domain | Infrastructure, Presentation |
-| Infrastructure | Domain, Application | Presentation |
-| Presentation | Application (y Domain para tipos) | Infrastructure (solo la ensambla el composition root vía DI) |
+| core/domain | (nada) | application, ports, adapters, configuration |
+| core/application | core/domain, ports/outbound | adapters, configuration |
+| ports/inbound | core/application/dto | adapters, configuration |
+| ports/outbound | core/domain | adapters, configuration |
+| adapters/inbound | ports/inbound, ports/outbound | core directamente |
+| adapters/outbound | ports/outbound, core/domain | adapters/inbound |
+| configuration | todos | (es el composition root) |
 
-**¿Por qué Onion para este caso?** (1) Las reglas —quién emite, cuándo se revoca, qué es un certificado íntegro— existen sin importar la tecnología. (2) La blockchain es un detalle: la versión actual es simulada y el puerto `CertificateLedger` permite migrar a una testnet real cambiando solo la capa de infraestructura. (3) El dominio y los casos de uso se prueban con fakes, sin levantar nada.
+**¿Por qué Hexagonal para este caso?** (1) Las reglas —quién emite, cuándo se revoca, qué es un certificado íntegro— existen sin importar la tecnología. (2) La blockchain es un detalle: la versión actual es SQLite y el puerto `CertificateLedger` permite migrar a una testnet real cambiando solo el adaptador outbound. (3) El dominio y los casos de uso se prueban con fakes de los puertos, sin levantar nada.
 
 ### 5.2 Componentes
 
-| Componente | Capa | Contenido |
+| Componente | Zona | Contenido |
 |------------|------|-----------|
-| `domain/entities` | Domain | `Institution`, `Certificate` |
-| `domain/value-objects` | Domain | `Block` |
-| `domain/errors` | Domain | Errores de negocio (`CertificateAlreadyRevokedError`, etc.) |
-| `domain/repositories` | Domain | Contratos `InstitutionRepository`, `CertificateRepository` |
-| `application/use-cases` | Application | `RegisterInstitution`, `IssueCertificate`, `VerifyCertificate`, `RevokeCertificate`, `VerifyChain`, `ListHolderCertificates` |
-| `application/ports` | Application | `CertificateLedger` (blockchain), `Clock` |
-| `application/dtos` | Application | Entradas/salidas de los casos de uso |
-| `infrastructure/persistence` | Infrastructure | Repositorios en memoria (futuro: SQLite) |
-| `infrastructure/blockchain` | Infrastructure | `InMemoryBlockchainLedger` (futuro: adaptador testnet) |
-| `presentation/controllers` | Presentation | `InstitutionsController`, `CertificatesController`, `BlockchainController` |
-| `presentation/filters` | Presentation | `DomainErrorFilter` (negocio → HTTP) |
-| `app.module.ts` | Composition root | Único archivo que conecta contratos con implementaciones |
+| `core/domain/entities` | Core | `Institution`, `Certificate` |
+| `core/domain/value-objects` | Core | `Block` |
+| `core/domain/exceptions` | Core | Errores de negocio (`CertificateAlreadyRevokedError`, etc.) |
+| `core/application/use-cases` | Core | `RegisterInstitution`, `IssueCertificate`, `VerifyCertificate`, `RevokeCertificate`, `VerifyChain`, `ListHolderCertificates` |
+| `core/application/dto` | Core | Entradas/salidas de los casos de uso |
+| `ports/inbound` | Ports | `IRegisterInstitutionPort`, `IIssueCertificatePort`, `IVerifyCertificatePort`, `IRevokeCertificatePort`, `IVerifyChainPort`, `IListHolderCertificatesPort` |
+| `ports/outbound` | Ports | `InstitutionRepository`, `CertificateRepository`, `CertificateLedger`, `Clock` |
+| `adapters/outbound/persistence` | Adapters | `SqliteInstitutionAdapter`, `SqliteCertificateAdapter` (+ variantes en memoria) |
+| `adapters/outbound/blockchain` | Adapters | `SqliteBlockchainAdapter` (+ variante en memoria) |
+| `adapters/outbound/clock` | Adapters | `SystemClockAdapter` |
+| `adapters/inbound/rest` | Adapters | `InstitutionsController`, `CertificatesController`, `BlockchainController`, `DomainErrorFilter` |
+| `configuration/dependency-injection/app.module.ts` | Config | Composition root: conecta puertos con adaptadores vía DI de NestJS |
 
 ### 5.3 Diagramas
 
@@ -362,34 +366,39 @@ graph TB
     SYS -- "ancla hashes como bloques" --> BC
 ```
 
-**C4 — Nivel 2: Contenedores/Componentes (capas Onion)**
+**C4 — Nivel 2: Contenedores/Componentes (Arquitectura Hexagonal)**
 
 ```mermaid
 graph TB
-    subgraph Presentation
+    subgraph AdaptersInbound["Adapters Inbound"]
         API["API REST (NestJS controllers)"]
         FILT["DomainErrorFilter"]
     end
-    subgraph Application
-        UC["Casos de uso"]
-        PORTS["Puertos: CertificateLedger, Clock"]
+    subgraph PortsInbound["Ports Inbound"]
+        PI["IRegisterInstitutionPort, IIssueCertificatePort, ..."]
     end
-    subgraph Domain
+    subgraph Core
+        UC["Casos de uso"]
         ENT["Entidades: Institution, Certificate"]
         VO["Value Object: Block"]
-        CONTR["Contratos de repositorio"]
     end
-    subgraph Infrastructure
-        REPO["Repositorios en memoria"]
-        LEDGER["InMemoryBlockchainLedger"]
+    subgraph PortsOutbound["Ports Outbound"]
+        PO["InstitutionRepository, CertificateRepository, CertificateLedger, Clock"]
+    end
+    subgraph AdaptersOutbound["Adapters Outbound"]
+        REPO["SqliteInstitutionAdapter, SqliteCertificateAdapter"]
+        LEDGER["SqliteBlockchainAdapter"]
+        CLOCK["SystemClockAdapter"]
     end
 
-    API --> UC
+    API --> PI
+    PI --> UC
     UC --> ENT
-    UC --> PORTS
+    UC --> PO
     ENT --> VO
-    REPO -. implementa .-> CONTR
-    LEDGER -. implementa .-> PORTS
+    REPO -. implementa .-> PO
+    LEDGER -. implementa .-> PO
+    CLOCK -. implementa .-> PO
 ```
 
 **Secuencia — CU-02: Emitir certificado**
@@ -620,7 +629,7 @@ Formato uniforme de respuesta de error:
 
 ### 7.1 Estrategia de pruebas
 
-Pirámide alineada con las capas Onion:
+Pirámide alineada con las zonas hexagonales:
 
 1. **Unitarias de dominio** (base, mayor cantidad): entidades y `Block` probados de forma aislada, sin ningún framework. Validan RN-01..RN-10.
 2. **Unitarias de casos de uso**: cada caso de uso probado con **fakes en memoria** de los contratos (repositorios, ledger, reloj fijo). Sin base de datos ni HTTP.
@@ -654,6 +663,6 @@ Herramientas: Jest (unitarias) + Supertest (e2e). Meta: cobertura > 80 % en `dom
 | OE-1 (emisión anclada) | RN-01, RN-02, RN-03 | RF-02, RF-03, RF-04 | HU-02 | CP-01, CP-06, CP-07, CP-12 |
 | OE-2 (verificación pública) | RN-07, RN-08 | RF-05 | HU-03 | CP-08, CP-09, CP-12, CP-13 |
 | OE-3 (revocación auditable) | RN-04, RN-05, RN-06 | RF-06 | HU-04 | CP-02, CP-03, CP-10, CP-12 |
-| OE-4 (arquitectura Onion) | — | RNF-01, RNF-02 | — | Verificado por estructura del código y revisión de imports |
+| OE-4 (arquitectura Hexagonal) | — | RNF-01, RNF-02 | — | Verificado por estructura del código y revisión de imports |
 | OE-5 (calidad con pruebas) | RN-09 | RNF-03, RNF-04 | HU-05 | CP-04, CP-05, CP-11, CP-14 |
 | OE-6 (API REST) | — | RF-01..RF-09 | HU-01..HU-06 | CP-12, CP-13 |
