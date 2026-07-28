@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import {
   Certificate,
   CertificateStatus,
@@ -7,7 +6,18 @@ import {
 import { CertificateRepository } from '../../../ports/outbound/certificate-repository.port';
 import { PrismaService } from '../../../configuration/database/prisma.service';
 
-type CertificateRow = Prisma.CertificateGetPayload<Record<string, never>>;
+/** Forma de la fila tal como la devuelve Prisma para el modelo Certificate. */
+type CertificateRow = {
+  verificationCode: string;
+  institutionId: string;
+  holderName: string;
+  holderDocument: string;
+  degreeTitle: string;
+  issuedAt: Date;
+  status: string;
+  revokedAt: Date | null;
+  revocationReason: string | null;
+};
 
 /**
  * Adaptador outbound: implementación SQLite del puerto CertificateRepository.

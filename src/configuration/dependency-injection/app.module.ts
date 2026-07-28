@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 // Outbound ports (tokens + interfaces)
 import { INSTITUTION_REPOSITORY, InstitutionRepository } from '../../ports/outbound/institution-repository.port';
@@ -23,11 +24,14 @@ import { RevokeCertificateUseCase } from '../../core/application/use-cases/revok
 import { VerifyChainUseCase } from '../../core/application/use-cases/verify-chain.use-case';
 import { ListHolderCertificatesUseCase } from '../../core/application/use-cases/list-holder-certificates.use-case';
 
-// Adapters outbound: implementaciones concretas
-import { PrismaService } from '../database/prisma.service';
-import { SqliteBlockchainAdapter } from '../../adapters/outbound/blockchain/sqlite-blockchain.adapter';
-import { SqliteInstitutionAdapter } from '../../adapters/outbound/persistence/sqlite-institution.adapter';
-import { SqliteCertificateAdapter } from '../../adapters/outbound/persistence/sqlite-certificate.adapter';
+// Adapters outbound: TypeORM/PostgreSQL (activos)
+import { typeOrmConfig } from '../database/typeorm.config';
+import { InstitutionOrmEntity } from '../../adapters/outbound/persistence/typeorm/entities/institution.orm-entity';
+import { CertificateOrmEntity } from '../../adapters/outbound/persistence/typeorm/entities/certificate.orm-entity';
+import { BlockOrmEntity } from '../../adapters/outbound/persistence/typeorm/entities/block.orm-entity';
+import { TypeOrmInstitutionAdapter } from '../../adapters/outbound/persistence/typeorm/typeorm-institution.adapter';
+import { TypeOrmCertificateAdapter } from '../../adapters/outbound/persistence/typeorm/typeorm-certificate.adapter';
+import { TypeOrmBlockchainAdapter } from '../../adapters/outbound/blockchain/typeorm/typeorm-blockchain.adapter';
 import { SystemClockAdapter } from '../../adapters/outbound/clock/system-clock.adapter';
 
 // Adapters inbound: controllers REST y filtro de errores
@@ -39,24 +43,29 @@ import { DomainErrorFilter } from '../../adapters/inbound/rest/filters/domain-er
 /**
  * COMPOSITION ROOT — Arquitectura Hexagonal.
  *
- * Aquí (y solo aquí) se decide qué adaptador satisface cada puerto.
- * Para migrar a PostgreSQL o a una blockchain real basta con cambiar
- * los `useClass` de los outbound ports en este archivo.
+ * Adaptadores activos:    TypeORM + PostgreSQL
+ * Adaptadores disponibles (compilando, inactivos): Prisma + SQLite
+ * Para volver a SQLite: reemplazar TypeOrm* por Sqlite* y TypeOrmModule por PrismaService.
  *
  * Flujo de dependencias:
  *   Adapters inbound (REST) → ports inbound → core (use-cases)
- *   Core (use-cases) → ports outbound → adapters outbound (Prisma/SQLite)
+ *   Core (use-cases) → ports outbound → adapters outbound (TypeORM/PostgreSQL)
  */
 @Module({
+  imports: [
+    TypeOrmModule.forRoot(typeOrmConfig),
+    TypeOrmModule.forFeature([
+      InstitutionOrmEntity,
+      CertificateOrmEntity,
+      BlockOrmEntity,
+    ]),
+  ],
   controllers: [InstitutionsController, CertificatesController, BlockchainController],
   providers: [
-    // ── Infraestructura transversal ──────────────────────────────────────
-    PrismaService,
-
-    // ── Outbound ports → adaptadores SQLite ─────────────────────────────
-    { provide: INSTITUTION_REPOSITORY, useClass: SqliteInstitutionAdapter },
-    { provide: CERTIFICATE_REPOSITORY, useClass: SqliteCertificateAdapter },
-    { provide: CERTIFICATE_LEDGER,     useClass: SqliteBlockchainAdapter },
+    // ── Outbound ports → adaptadores TypeORM/PostgreSQL ─────────────────
+    { provide: INSTITUTION_REPOSITORY, useClass: TypeOrmInstitutionAdapter },
+    { provide: CERTIFICATE_REPOSITORY, useClass: TypeOrmCertificateAdapter },
+    { provide: CERTIFICATE_LEDGER,     useClass: TypeOrmBlockchainAdapter },
     { provide: CLOCK,                  useClass: SystemClockAdapter },
 
     // ── Error filter global ──────────────────────────────────────────────
